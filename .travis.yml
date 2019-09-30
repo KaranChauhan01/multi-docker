@@ -1,0 +1,35 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t karanc10/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true karanc10/react-test npm run test
+
+after_success:
+  - docker build -t karanc10/multi-client ./client
+  - docker build -t karanc10/multi-nginx ./nginx
+  - docker build -t karanc10/multi-server ./server
+  - docker build -t karanc10/multi-worker ./worker
+  # Log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take all the images and push them to docker hub
+  - docker push karanc10/multi-client
+  - docker push karanc10/multi-nginx
+  - docker push karanc10/multi-server
+  - docker push karanc10/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: "us-east-2"
+  app: "docker-react"
+  env: "DockerReact-env"
+  bucket_name: "elasticbeanstalk-us-east-2-624417255488"
+  bucker_path: "docker-react"
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key:
+    secure: "$AWS_SECRET_KEY"
